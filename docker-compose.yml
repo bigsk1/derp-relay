@@ -1,0 +1,40 @@
+services:
+  relay:
+    image: "${DERP_IMAGE:-ghcr.io/bigsk1/derp-relay:v0.1.0}"
+    environment:
+      DERP_HOST: "${DERP_HOST:?Set DERP_HOST to the public relay hostname}"
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+      - "3478:3478/udp"
+    volumes:
+      - state:/var/lib/derper
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "0"
+    mem_limit: 512m
+    pids_limit: 128
+    ulimits:
+      nofile:
+        soft: 8192
+        hard: 8192
+    healthcheck:
+      test: ["CMD", "nc", "-z", "-w", "2", "127.0.0.1", "443"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: local
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  state:

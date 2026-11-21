@@ -1,0 +1,6 @@
+services:
+  relay:
+    image: derp-relay:local
+    build:
+      context: .
+    pull_policy: build

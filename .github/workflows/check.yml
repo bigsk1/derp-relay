@@ -1,0 +1,46 @@
+name: Check relay image
+
+on:
+  pull_request:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      DERP_HOST: relay.example.test
+      DERP_CERT_DIR: /etc/example-derp-tls
+      DERP_IMAGE: derp-relay:check
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Compose variants
+        run: |
+          docker compose config --quiet
+          docker compose -f docker-compose.yml -f compose.build.yml -f compose.manual-tls.yml config --quiet
+      - name: Build the release image and run the Go tests
+        run: docker build --tag derp-relay:check .
+      - name: Check non-root startup without publishing ports
+        run: |
+          cat > "$RUNNER_TEMP/derp-smoke.yml" <<'YAML'
+          services:
+            relay:
+              ports: !reset []
+              healthcheck:
+                interval: 1s
+          YAML
+          compose=(docker compose -p derp-smoke -f docker-compose.yml -f "$RUNNER_TEMP/derp-smoke.yml")
+          trap '"${compose[@]}" down --volumes' EXIT
+          if ! "${compose[@]}" up -d --wait --wait-timeout 30; then
+            "${compose[@]}" logs relay
+            exit 1
+          fi
+          test "$("${compose[@]}" exec -T relay id -u)" = 10001
+          "${compose[@]}" exec -T relay wget -qO /dev/null http://127.0.0.1/generate_204

@@ -1,0 +1,15 @@
+services:
+  relay:
+    environment:
+      DERP_CERT_MODE: manual
+      DERP_HTTPS_PORT: "${DERP_HTTPS_PORT:-8443}"
+    ports: !override
+      - "${DERP_HTTPS_PORT:-8443}:443/tcp"
+      - "3478:3478/udp"
+    volumes:
+      - type: bind
+        source: "${DERP_CERT_DIR:?Set DERP_CERT_DIR to the absolute certificate directory on the VPS}"
+        target: /run/derp-tls
+        read_only: true
+        bind:
+          create_host_path: false
